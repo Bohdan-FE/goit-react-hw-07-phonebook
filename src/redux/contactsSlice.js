@@ -1,40 +1,56 @@
-import { createSlice, nanoid } from "@reduxjs/toolkit";
-import { persistReducer } from 'redux-persist'
-import storage from 'redux-persist/lib/storage'
+import { createSlice, isAnyOf } from "@reduxjs/toolkit";
+import { addContactThunk, deleteContactThunk, getConstactsThunk } from "./operations";
 
+const contactsInitialState = {
+    items: [],
+    isLoading: false,
+    error: null
+}
+const thunksArr = [addContactThunk, deleteContactThunk, getConstactsThunk]
 
-const contactsInitialState = { contacts: [] };
+const thunhsTypes = (type) => thunksArr.map(thunk => thunk[type])
 
+const handlePending = (state) => {
+            state.isLoading = true
+}
+
+const handleFulfilled = (state) => {
+            state.isLoading = false
+            state.error = null
+}
+
+const handleRejected = (state, action) => {
+            state.error = action.payload
+}
+             
+const handleGetContactFullfild = (state, { payload }) => {
+            state.isLoading = false
+            state.error = null
+            state.items = payload 
+}
+
+const handleAddContactFullfild = (state, { payload }) => {
+            state.items.push(payload.data)
+}
+
+const handleDeleteContact = (state, { payload }) => {
+            state.items = state.items.filter(item => item.id !== payload.data.id) 
+            
+}
+            
 const contactsSlice = createSlice({
     name: 'contacts',
     initialState: contactsInitialState,
-    reducers: {
-        addContact: {
-      reducer(state, action) {
-        state.contacts.push(action.payload);
-      },
-      prepare(text) {
-          return {
-              payload: {
-                  ...text,
-                  id: nanoid()
-              },
-          };
-      },
-    },
-        removeContact(state, action) {
-            state.contacts = state.contacts.filter(contact => contact.id !== action.payload)
-        }
+    extraReducers: (builder) => {
+        builder
+            .addCase(getConstactsThunk.fulfilled, handleGetContactFullfild)
+            .addCase(addContactThunk.fulfilled, handleAddContactFullfild)
+            .addCase(deleteContactThunk.fulfilled, handleDeleteContact)
+            .addMatcher(isAnyOf(...thunhsTypes('pending')), handlePending)
+            .addMatcher(isAnyOf(...thunhsTypes('fulfilled')), handleFulfilled)
+            .addMatcher(isAnyOf(...thunhsTypes('rejected')), handleRejected)
     }
 })
 
 
-export const { addContact, removeContact } = contactsSlice.actions;
 export const contactsReducer = contactsSlice.reducer;
-
-const persistConfig = {
-  key: 'contacts',
-  storage,
-}
- 
-export const persistedReducer = persistReducer(persistConfig, contactsReducer)
